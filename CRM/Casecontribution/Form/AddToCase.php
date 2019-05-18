@@ -58,17 +58,27 @@ class CRM_Casecontribution_Form_AddToCase extends CRM_Core_Form {
     $defaults = array();
     $contribution = array();
     $params = array('id' => $this->contributionId);
-    CRM_Contribute_BAO_Contribution::retrieve($params, $contribution);
+    $ids = array($this->contributionId);
+    CRM_Contribute_BAO_Contribution::retrieve($params, $contribution, $ids);
     //$defaults['file_on_case_target_contact_id'] = $defaults['target_contact'];
 
     // If this contact has an open case, supply it as a default
     $cid = $contribution['contact_id'];
     if ($cid) {
-      $cases = CRM_Case_BAO_Case::getUnclosedCases(array('contact_id' => $cid), $this->currentCaseId);
-      foreach ($cases as $id => $details) {
+      $cases = civicrm_api3('Case', 'get', array(
+        'contact_id' => $cid,
+        'return' => ['case_type_id.title', 'subject', 'contact_id']
+      ));
+
+      if ($cases['is_error'] || !$cases['count']) {
+        return $defaults;
+      }
+
+      // CRM_Core_DAO::commonRetrieveAll('CRM_Case_DAO_Case', 'contact_id', $cid, $cases);
+      foreach ($cases['values'] as $id => $details) {
         $defaults['file_on_case_unclosed_case_id'] = $id;
         $value = array(
-          'label' => $details['sort_name'] . ' - ' . $details['case_type'],
+          'label' => $details['subject'] . ' - ' . $details['case_type_id.title'],
           'extra' => array('contact_id' => $cid),
         );
         $this->updateElementAttr('file_on_case_unclosed_case_id', array('data-value' => json_encode($value)));
